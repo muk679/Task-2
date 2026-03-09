@@ -28,3 +28,6 @@ docker rm task-app
 docker run -d -p 3000:3000 --name task-app dockerhubusername/task-app:<previous_commit>
 
 This restores the application to the last stable state.
+
+<img width="1338" height="600" alt="image" src="https://github.com/user-attachments/assets/4840c43e-cbd1-4ed8-8204-9899a0b96b27" />
+
