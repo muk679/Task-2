@@ -1,0 +1,68 @@
+name: CI-CD Pipeline
+
+on:
+push:
+branches:
+- main
+
+jobs:
+
+build:
+runs-on: ubuntu-latest
+
+steps:
+
+  - name: Checkout Code
+    uses: actions/checkout@v3
+
+  - name: Setup Node
+    uses: actions/setup-node@v3
+    with:
+      node-version: 18
+
+  - name: Install Dependencies
+    run: npm install
+
+  - name: Run Linter
+    run: npm run lint
+
+  - name: Run Tests
+    run: npm test
+
+  - name: Build Docker Image
+    run: |
+      docker build -t ${{ secrets.DOCKER_USERNAME }}/task-app:${{ github.sha }} .
+
+  - name: Login to DockerHub
+    run: |
+      echo ${{ secrets.DOCKER_PASSWORD }} | docker login -u ${{ secrets.DOCKER_USERNAME }} --password-stdin
+
+  - name: Push Docker Image
+    run: |
+      docker push ${{ secrets.DOCKER_USERNAME }}/task-app:${{ github.sha }}
+
+
+deploy:
+
+needs: build
+runs-on: ubuntu-latest
+
+steps:
+
+  - name: Deploy to Staging Server
+    uses: appleboy/ssh-action@master
+    with:
+      host: ${{ secrets.STAGING_HOST }}
+      username: ${{ secrets.STAGING_USER }}
+      key: ${{ secrets.SSH_KEY }}
+      script: |
+        docker pull ${{ secrets.DOCKER_USERNAME }}/task-app:${{ github.sha }}
+
+        docker stop task-app || true
+        docker rm task-app || true
+
+        docker run -d \
+        --name task-app \
+        -p 3000:3000 \
+        ${{ secrets.DOCKER_USERNAME }}/task-app:${{ github.sha }}
+
