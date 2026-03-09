@@ -10,10 +10,10 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout code
+      - name: Checkout Code
         uses: actions/checkout@v3
 
-      - name: Install Node.js
+      - name: Setup Node.js
         uses: actions/setup-node@v3
         with:
           node-version: 18
@@ -24,14 +24,25 @@ jobs:
       - name: Test
         run: npm test
 
-      - name: Build Docker Image
-        run: docker build -t ${{ secrets.DOCKER_USERNAME }}/task-app:latest .
+      - name: Build Docker Image with SHA tag
+        run: |
+          # Get short SHA (first 7 chars of commit)
+          IMAGE_TAG=${GITHUB_SHA::7}
+          echo "Using image tag: $IMAGE_TAG"
+          
+          # Build Docker image with SHA and latest tags
+          docker build -t ${{ secrets.DOCKER_USERNAME }}/task-app:$IMAGE_TAG -t ${{ secrets.DOCKER_USERNAME }}/task-app:latest .
+          
+          # Save IMAGE_TAG as environment variable for next step
+          echo "IMAGE_TAG=$IMAGE_TAG" >> $GITHUB_ENV
 
       - name: Login to Docker Hub
         run: echo "${{ secrets.DOCKER_PASSWORD }}" | docker login -u "${{ secrets.DOCKER_USERNAME }}" --password-stdin
 
-      - name: Push Docker Image
-        run: docker push ${{ secrets.DOCKER_USERNAME }}/task-app:latest
+      - name: Push Docker Images
+        run: |
+          docker push ${{ secrets.DOCKER_USERNAME }}/task-app:$IMAGE_TAG
+          docker push ${{ secrets.DOCKER_USERNAME }}/task-app:latest
 
   deploy-to-staging:
     needs: build-and-push
@@ -39,13 +50,13 @@ jobs:
     steps:
       - name: Deploy to Staging
         run: |
-          echo "Deploying to staging environment..."
-          echo "Pull the latest Docker image:"
-          docker pull ${{ secrets.DOCKER_USERNAME }}/task-app:latest
-
-          echo "Stop existing staging container (if running):"
+          echo "Deploying staging container..."
+          # Pull latest SHA image
+          docker pull ${{ secrets.DOCKER_USERNAME }}/task-app:$IMAGE_TAG
+          
+          # Stop and remove existing container if running
           docker stop task-app || true
           docker rm task-app || true
-
-          echo "Run staging container:"
-          docker run -d -p 3000:3000 --name task-app ${{ secrets.DOCKER_USERNAME }}/task-app:latest
+          
+          # Run container
+          docker run -d -p 3000:3000 --name task-app ${{ secrets.DOCKER_USERNAME }}/task-app:$IMAGE_TAG
