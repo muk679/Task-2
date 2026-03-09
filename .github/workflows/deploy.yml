@@ -1,68 +1,51 @@
-name: CI-CD Pipeline
+name: CI/CD Docker Pipeline
 
 on:
-push:
-branches:
-- main
+  push:
+    branches:
+      - main
 
 jobs:
+  build-and-push:
+    runs-on: ubuntu-latest
 
-build:
-runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
 
-steps:
+      - name: Install Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: 18
 
-  - name: Checkout Code
-    uses: actions/checkout@v3
+      - name: Lint
+        run: npm run lint
 
-  - name: Setup Node
-    uses: actions/setup-node@v3
-    with:
-      node-version: 18
+      - name: Test
+        run: npm test
 
-  - name: Install Dependencies
-    run: npm install
+      - name: Build Docker Image
+        run: docker build -t ${{ secrets.DOCKER_USERNAME }}/task-app:latest .
 
-  - name: Run Linter
-    run: npm run lint
+      - name: Login to Docker Hub
+        run: echo "${{ secrets.DOCKER_PASSWORD }}" | docker login -u "${{ secrets.DOCKER_USERNAME }}" --password-stdin
 
-  - name: Run Tests
-    run: npm test
+      - name: Push Docker Image
+        run: docker push ${{ secrets.DOCKER_USERNAME }}/task-app:latest
 
-  - name: Build Docker Image
-    run: |
-      docker build -t ${{ secrets.DOCKER_USERNAME }}/task-app:${{ github.sha }} .
+  deploy-to-staging:
+    needs: build-and-push
+    runs-on: ubuntu-latest
+    steps:
+      - name: Deploy to Staging
+        run: |
+          echo "Deploying to staging environment..."
+          echo "Pull the latest Docker image:"
+          docker pull ${{ secrets.DOCKER_USERNAME }}/task-app:latest
 
-  - name: Login to DockerHub
-    run: |
-      echo ${{ secrets.DOCKER_PASSWORD }} | docker login -u ${{ secrets.DOCKER_USERNAME }} --password-stdin
+          echo "Stop existing staging container (if running):"
+          docker stop task-app || true
+          docker rm task-app || true
 
-  - name: Push Docker Image
-    run: |
-      docker push ${{ secrets.DOCKER_USERNAME }}/task-app:${{ github.sha }}
-
-
-deploy:
-
-needs: build
-runs-on: ubuntu-latest
-
-steps:
-
-  - name: Deploy to Staging Server
-    uses: appleboy/ssh-action@master
-    with:
-      host: ${{ secrets.STAGING_HOST }}
-      username: ${{ secrets.STAGING_USER }}
-      key: ${{ secrets.SSH_KEY }}
-      script: |
-        docker pull ${{ secrets.DOCKER_USERNAME }}/task-app:${{ github.sha }}
-
-        docker stop task-app || true
-        docker rm task-app || true
-
-        docker run -d \
-        --name task-app \
-        -p 3000:3000 \
-        ${{ secrets.DOCKER_USERNAME }}/task-app:${{ github.sha }}
-
+          echo "Run staging container:"
+          docker run -d -p 3000:3000 --name task-app ${{ secrets.DOCKER_USERNAME }}/task-app:latest
