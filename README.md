@@ -2,50 +2,7 @@
 
 Diagram Of Workflow
 
-Pushes Code (main branch)
-                    │
-                    ▼
-            GitHub Actions Trigger
-                    │
-                    ▼
-          ┌─────────────────────┐
-          │        Lint         │
-          │ (npm run lint)      │
-          └─────────────────────┘
-                    │
-                    ▼
-          ┌─────────────────────┐
-          │        Test         │
-          │ (npm test)          │
-          └─────────────────────┘
-                    │
-                    ▼
-          ┌───────────────────────────────┐
-          │    Build Docker Image          │
-          │ Tag: latest + short SHA       │
-          └───────────────────────────────┘
-                    │
-                    ▼
-          ┌───────────────────────────────┐
-          │  Push Docker Image to Hub      │
-          │   Push both tags               │
-          └───────────────────────────────┘
-                    │
-                    ▼
-          ┌───────────────────────────────┐
-          │ Deploy to Staging Environment  │
-          │ Pull SHA image & run container│
-          └───────────────────────────────┘
-                    │
-                    ▼
-          Application Running in Staging
-                    │
-                    ▼
-          ┌───────────────────────────────┐
-          │ Rollback (if needed)          │
-          │ Run previous SHA image        │
-          └───────────────────────────────┘
-
+<img width="656" height="834" alt="image" src="https://github.com/user-attachments/assets/f285b580-ed07-40a7-89dd-ccc6d598b280" />
 
 
 
@@ -85,6 +42,7 @@ docker run -d -p 3000:3000 --name task-app dockerhubusername/task-app:<previous_
 This restores the application to the last stable state.
 
 <img width="1338" height="600" alt="image" src="https://github.com/user-attachments/assets/4840c43e-cbd1-4ed8-8204-9899a0b96b27" />
+
 
 
 
